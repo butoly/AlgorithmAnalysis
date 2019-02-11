@@ -1,0 +1,601 @@
+\documentclass[12pt,a4paper]{scrartcl}
+\usepackage[T2A]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[russian]{babel}
+\usepackage{indentfirst}
+\usepackage{misccorr}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage[left=2.5cm, right=1.5cm, top=2.5cm, bottom=2.5cm]{geometry}
+
+\begin{document}
+	\begin{titlepage}
+		\begin{center}
+			\large
+			Государственное образовательное учреждение высшего профессионального образования\\
+			“Московский государственный технический университет имени Н.Э.Баумана”
+			\vspace{0.25cm}
+			
+			
+			\textsc{Дисциплина: Анализ алгоритмов}\\[5mm]
+			\vfill
+			
+			\textsc{Лабораторная работа № 5}\\[5mm]
+			
+			{\large Многопоточность}
+			\bigskip
+			
+			
+			Бутолин Александр Алексеевич\\
+			Студент группы ИУ7-52Б
+			\vfill		
+			
+		\end{center}
+		\begin{center}
+			2018 г.
+		\end{center}
+	\end{titlepage}
+	
+	
+	\begin{center}
+		\textbf{Введение}
+		\label{sec:intro}
+    \end{center}
+
+    В связи с возрастающей потребностью решать задачи, связанные с обработкой матриц, такие как расчет новых координат тела в пространстве, растет необходимость в эффективных алгоритмах по работе с ними. 
+	Перемножение матриц - одна из стандартных и наиболее используемых операций над матрицами, поэтому существует несколько алгоритмов, позволяющих произвести подобные вычисления (в данной работе рассматриваются классический алгоритм и алгоритм Винограда).
+	Важную роль в решении подобных задач играет скорость, с которой производятся вычисления.
+	Одним из способов улучшить данный показатель является многопоточность.
+	В данной работе требуется на примере алгоритмов перемножения матриц изучить и применить на практике метод параллельных вычислений.
+	
+	Цель работы: изучить алгоритмы умножения матриц (классический и Винограда), а также провести сравнительный анализ с реализацией на потоках. 	
+	Задачи: 
+	
+	\begin{enumerate}
+		\item {реализовать ПО, включающее данные алгоритмы;} 
+		\item {провести замеры времени выполнения алгоритмов;} 
+		\item {описать и обосновать полученные результаты в отчете о выполненной лабораторной работе.}
+    \end{enumerate}
+    
+    \newpage
+	\section{Аналитический раздел}
+	\label{sec:analitics}
+	
+	В этом разделе описаны алгоритмы, использованные в данной лабораторной работе.
+	\subsection{Описание алгоритмов}
+	\label{sec:analitics:alg}
+	
+	Умножение матриц — одна из основных операций над матрицами.
+	Матрица, получаемая в результате операции умножения, называется их произведением \cite{Matrix_Mult}. 
+	Рассмотрим стандартный алгоритм перемножения двух матриц.
+	Пусть есть две матрицы A и B размера $a\cdot b$ и $c\cdot d$ соответственно. 
+	Тогда, результатом из умножения будет матрица C размером $a\cdot d$, имеющая вид (\ref{eq:prodresult}):
+	
+	\begin{math}\label{eq:prodresult}
+	C =\begin{bmatrix}
+	c_11 & c_12 & ... & c_1d\\
+	c_21 & c_22 & ... & c_2d\\
+	...\\
+	c_a1 & c_a2 & ... & c_ad
+	\end{bmatrix}
+	\end{math}
+	
+	Каждый элемент матрицы (\ref{eq:prodresult}) представляет собой скалярное произведение соответствующих строки и столбца исходных матриц. 
+	Такое выражение можно просчитать заранее \cite{Coppersmith_Winograd}. 
+	Рассмотрим два вектора: 
+	
+	\begin{equation}\label{eq:vector1}
+	V = (v_1, v_2, v_3, v_4)
+	\end{equation}
+	
+	и
+	
+	\begin{equation}\label{eq:vector2}
+	W = (w_1, w_2, w_3, w_4)
+	\end{equation}
+	
+	
+	Их скалярное произведение: 
+	
+	\begin{equation}\label{eq:scalar1}
+	V * W = v_1 \cdot w_1 + v_2 \cdot w_2 + v_3 \cdot w_3 + v_4 \cdot w_4.
+	\end{equation}
+	
+	
+	Это равенство можно переписать в виде: 
+	
+	\begin{equation}\label{eq:scalar2}
+	V * W = (v_1 + w_2) \cdot (v_2 + w_1) + (v_3 + w_4) \cdot (v_4 + w_3) - v_1 \cdot v_2 - v_3 \cdot v_4 - w_1 \cdot w_2 - w_3 \cdot w_4
+	\end{equation}
+	
+	Несмотря на то, что выражение (\ref{eq:scalar2}) требует больше вычисления, чем (\ref{eq:scalar1}), выражение в правой части последнего равенства (\ref{eq:scalar2}) допускает предварительную обработку\cite{Coppersmith_Winograd}. 
+	Части этого выражения можно вычислить заранее и запомнить для каждой строки первой матрицы и для каждого столбца второй, что позволяет выполнять для каждого элемента лишь первые два умножения и последующие пять сложений, а также дополнительно два сложения.
+	В этом и заключается алгоритм Винограда \cite{Coppersmith_Winograd_2}. 
+	
+	В настоящее время умножение матриц активно применяется при решения задач \cite{Matrix_Mult}:
+	
+	\begin{enumerate}
+		\item {касающихся машинного обучения; }
+		\item {преобразования координат тела на плоскости или в пространстве.} 	
+	\end{enumerate}
+	
+
+	\subsection{Вывод}
+	\label{sec:analitics:conclusion}
+	
+	Исследование предметной области показало, что существует несколько возможных алгоритмов
+	перемножения матриц. Это дает возможность произвести их сравнение для определения их преимуществ и недостатков.
+	Данная задача актуальна, в связи с тем, что операции над матрицами находят обширное применение.
+
+    \newpage
+	\section{Конструкторский раздел}
+	\label{sec:construct}
+	
+	Для реализации алгоритмов были проведены следующие действия.
+
+\subsection{Модель вычислений}
+\label{sec:construct:model}
+
+Введем модель вычислений, используемую при оценки трудоемкости:
+
+\begin{enumerate}
+	\item {объявление переменной, массива без определения имеет трудоемкость 0; }
+	\item {операторы <знак>=, а также ++ и -- имеют трудоемкость 1; }
+	\item {условный оператор имеет трудоемкость 0 \\ а само условие расчитывается по операциям; }
+	\item {операции =, +, -, *, / имеют трудоемкость 1; }
+	\item {операця индескации имеет трудоемкость 1; }
+	\item {оператор цикла имеет трудоемкость 2 + n * (2 + тело цикла) \\ для цикла вида for (int i = 0; i < n; i++).}	
+\end{enumerate}
+	
+	\subsection{Схемы алгоритмов}
+	\label{sec:construct:schemes}
+	
+	На рисунках \ref{fig:first} и \ref{fig:second} представлены схемы реализуемых алгоритмов, а так же рассчеты трудоемкости каждого из них.
+	
+	\begin{center}
+		\centering
+		%\includegraphics[scale=0.6]{standart_alg.pdf}	
+		%\captionof {figure}{Классический алгоритм перемножения матриц}
+		\label{fig:first}
+	\end{center}
+	
+	
+	\begin{center}
+		\centering
+		%\includegraphics[scale=0.45]{Vinograd.pdf}
+		%\captionof {figure}{Алгоритм Винограда перемножения матриц}
+		\label{fig:second}
+	\end{center}
+	
+	\newpage
+	\subsection{Сравнительный анализ стандартного алгоритма перемножения матриц и алгоритма Винограда}
+	\label{sec:construct:compare}
+	
+	Как видно из Рис. \ref{fig:second} алгоритм Винограда можно оптимизировать, так как некоторые операции можно вычислять заранее. 
+ Если же сравнивать с классическим алгоритмом, можно сделать предположение, что алгоритм Винограда будет работать медленнее, чем стандартный, из-за наличия трех дополнительных циклов. 
+ При этом, алгоритм Винограда использует дополнительные массивы, что должно увеличить объем потребляемой памяти. 
+ 
+ По представленным схемам (раздел \ref{sec:construct:schemes}) можно произвести рассчеты трудоемкости. 
+ Таким образом, трудоемкость классического алгоритма равна:
+ 
+ \begin{equation}\label{eq:t1}
+ T1 = 2 + n \cdot (2 + l \cdot (2 + 2 + m \cdot (2 + 8) )) \approx 10 \cdot n \cdot m \cdot l
+ \end{equation}
+ 
+ Трудоемкость алгоритма Винограда равна:
+ 
+ \begin{equation}\label{eq:t2}
+ \begin{gathered}
+ T2 = 2 + n \cdot (2 + 2 + (m/2) \cdot (2 + 12)) + 2 + l \cdot (2 + 2 + (m/2) \cdot (2 + 12)) +\\
+ 2 + n \cdot (2 + 2 + l \cdot (2 + 7 + 2 + (m/2) \cdot (2 + 23))) + 3 + 2 + \\
+ n \cdot (2 + 2 + l \cdot (2 + 13)) \approx 12.5 \cdot n \cdot m \cdot l
+ \end{gathered}
+ \end{equation}
+ 
+ Трудоемкость оптимизированного алгоритма Винограда равна:
+ 
+ \begin{equation}\label{eq:t3}
+ \begin{gathered}
+ T3 = 2 + (m/2) \cdot (2 + 2 + 2 + n \cdot (2 + 8) + 2 + l \cdot (2 + 8)) +\\
+ 2 + n \cdot (2 + 2 + l \cdot (2 + 7 + 2 + (m/2) \cdot (2 + 2 + 16))) + \\
+ 3 + 2 + 2 + n \cdot (2 + 2 + l \cdot (2 + 10)) \approx 10 \cdot n \cdot m \cdot l
+ \end{gathered}
+ \end{equation}
+	
+	
+	\subsection{Вывод}
+	\label{sec:construct:conclusion}
+	
+	Показанные в конструкторском разделе схемы позволяют реализовать представленные ими алгоритмы на любом языке программирования. 
+	Также, проведенный сравнительный анализ двух алгоритмов умножения дал возможность предположить, что алгоритм Винограда будет работать медленнее, потребляя при этом больше памяти, чем классический алгоритм.
+	Была рассчитана трудоемкость каждого алгоритма.
+	
+	\newpage
+	\section{Технологический раздел}
+	\label{sec:tech}
+	
+	В данном разделе приведена информация о конкретной реализации приведенных выше алгоритмов, а также исходный код полученных методов.
+	
+	\subsection{Требования к программному обеспечению}
+	\label{sec:tech:demands}
+	
+	К программному обеспечению предъявлены следующие требования:
+	\begin{enumerate}
+		\item{возможность ввода размерностей матриц;}
+		\item{возможность вывода результатов алгоритмов;}
+		\item{возможность вывода замеров времени, затраченного на работу алгоритмов.}
+	\end{enumerate}
+	
+	\subsection{Средства реализации}
+    \label{sec:tech:relise}
+    
+    Лабораторная работа была выполнена в MonoDevelop на языке C \#. 
+	Замеры процессорного времени были произведены с помощью встроенного метода TotalProcessorTime с последующим переводом в тики.
+	
+	\subsection{Листинг кода}
+	\label{sec:tech:listing}
+	
+	Ниже приведены листинги реализованных методов.
+	
+	\lstset{ %
+		language=C++,                 
+		basicstyle=\small\sffamily, 
+		numbers=left,               
+		numberstyle=\tiny,           
+		stepnumber=1,                   
+		numbersep=5pt,            
+		showspaces=false,            
+		showstringspaces=false,      
+		showtabs=false,            
+		frame=single,              
+		tabsize=2,                
+		captionpos=t,               
+		breaklines=true,           
+		breakatwhitespace=false, 
+		escapeinside={\%*}{*)}  
+	}
+	
+	Листинг 1: Реализация классического алгоритма умножения матриц
+	\lstinputlisting[language=C++]{Mult.cs}
+	
+	\newpage
+	Листинг 2: Реализация алгоритма Винограда перемножения матриц
+	\lstinputlisting[language=C++]{Mult.cs}
+	
+	\newpage
+	Листинг 3: Реализация классического алгоритма умножения с использованием параллельных вычислений
+	\lstinputlisting[language=C++]{Threading.cs}
+	
+	\newpage
+	Листинг 4: Реализация алгоритма Винограда умножения с использованием параллельных вычислений
+	\lstinputlisting[language=C++]{Threading.cs}
+	
+	\subsection{Вывод}
+	\label{sec:tech:conclusion}
+	
+	Основываясь на схемах, полученных в конструкторском разделе, было реализовано три алгоритма перемножения матриц. 
+	Программа была написана на языке C \# в среде MonoDevelop. 
+	Были выполнены поставленные для ПО требования, а именно осуществлен ввод размерностей матриц и вывод результатов работы алгоритмов.
+
+        \newpage
+	
+	\section{Экспериментальная часть}
+	\label{sec:exp}
+	
+	При реализации алгоритмов была произведена проверка правильности работы. 	
+	
+	\subsection{Примеры работы}
+	\label{sec:exp:examples}
+	
+	Были проведены тесты всех алгоритмов для определения правильности их работы.
+	
+	Тест 1. Умножение.
+	
+	Матрицы для перемножения:
+	
+	\begin{minipage}[c][3cm][c]{0,5\textwidth}
+		\begin{math}\label{eq:test11}
+		A =\begin{bmatrix}
+		1 & 2 & 3\\
+		-1 & 0 & 10\\
+		0 & 0 & 0
+		\end{bmatrix}
+		\end{math}
+	\end{minipage}
+	\begin{minipage}[c][3cm][c]{0,5\textwidth}
+		\begin{math}\label{eq:test12}
+		B =\begin{bmatrix}
+		2 & 4 & 0\\
+		5 & 0 & -1\\
+		0 & 1 & -1
+		\end{bmatrix}
+		\end{math}
+	\end{minipage}
+	
+	Ожидаемый результат:
+	
+	\begin{center}
+		\begin{math}\label{eq:res1}
+		C =\begin{bmatrix}
+		12 & 7 & -5\\
+		-2 & 6 & -10\\
+		0 & 0 & 0
+		\end{bmatrix}
+		\end{math}
+	\end{center}
+	
+	Результаты, где (\ref{eq:res11}) - классический алгоритм и (\ref{eq:res12}) - алгоритм Винограда:
+	
+	\begin{center}
+		\begin{minipage}[c][3cm][c]{0,3\textwidth}
+			\begin{equation}\label{eq:res11}
+			Classic =\begin{bmatrix}
+			12 & 7 & -5\\
+			-2 & 6 & -10\\
+			0 & 0 & 0
+			\end{bmatrix}
+			\end{equation}
+		\end{minipage}
+		\begin{minipage}[c][3cm][c]{0,3\textwidth}
+			\begin{equation}\label{eq:res12}
+			Winogr =\begin{bmatrix}
+			12 & 7 & -5\\
+			-2 & 6 & -10\\
+			0 & 0 & 0
+			\end{bmatrix}
+			\end{equation}
+		\end{minipage}
+	\end{center}
+	
+	Тест 2. Умножение на единичную матрицу.
+	
+	Матрицы для перемножения:
+	
+	\begin{minipage}[c][3cm][c]{0,5\textwidth}
+		\begin{math}\label{eq:test21}
+		A =\begin{bmatrix}
+		1 & 0 \\
+		0 & 1
+		\end{bmatrix}
+		\end{math}
+	\end{minipage}
+	\begin{minipage}[c][3cm][c]{0,5\textwidth}
+		\begin{math}\label{eq:test22}
+		B =\begin{bmatrix}
+		2 & 4 \\
+		5 & 0 
+		\end{bmatrix}
+		\end{math}
+	\end{minipage}
+	
+	Ожидаемый результат:
+	
+	\begin{center}
+		\begin{math}\label{eq:res2}
+		C =\begin{bmatrix}
+		2 & 4 \\
+		5 & 0
+		\end{bmatrix}
+		\end{math}
+	\end{center}
+	
+	Результаты, где (\ref{eq:res21}) - классический алгоритм и (\ref{eq:res22}) - алгоритм Винограда:
+	
+	\begin{center}
+		\begin{minipage}[c][3cm][c]{0,3\textwidth}
+			\begin{equation}\label{eq:res21}
+			Classic =\begin{bmatrix}
+			2 & 4 \\ 
+			5 & 0
+			\end{bmatrix}
+			\end{equation}
+		\end{minipage}	
+		\begin{minipage}[c][3cm][c]{0,3\textwidth}
+			\begin{equation}\label{eq:res22}
+			Winogr =\begin{bmatrix}
+			2 & 4 \\
+			5 & 0
+			\end{bmatrix}
+			\end{equation}
+		\end{minipage}
+	\end{center}
+	
+	
+	Тест 3. Умножение на нулевую матрицу.
+	
+	Матрицы для перемножения:
+	
+	\begin{minipage}[c][3cm][c]{0,5\textwidth}
+		\begin{math}\label{eq:test31}
+		A =\begin{bmatrix}
+		-1 & 10 \\
+		2 & 1
+		\end{bmatrix}
+		\end{math}
+	\end{minipage}
+	\begin{minipage}[c][3cm][c]{0,5\textwidth}
+		\begin{math}\label{eq:test32}
+		B =\begin{bmatrix}
+		0 & 0 \\
+		0 & 0 
+		\end{bmatrix}
+		\end{math}
+	\end{minipage}
+	
+	Ожидаемый результат:
+	
+	\begin{center}
+		\begin{math}\label{eq:res3}
+		C =\begin{bmatrix}
+		0 & 0 \\
+		0 & 0 
+		\end{bmatrix}
+		\end{math}
+	\end{center}
+	
+	Результаты, где (\ref{eq:res31}) - классический алгоритм и (\ref{eq:res32}) - алгоритм Винограда:
+	
+	\begin{center}
+		\begin{minipage}[c][3cm][c]{0,3\textwidth}
+			\begin{equation}\label{eq:res31}
+			Classic =\begin{bmatrix}
+			0 & 0 \\
+			0 & 0 
+			\end{bmatrix}
+			\end{equation}
+		\end{minipage}	
+		\begin{minipage}[c][3cm][c]{0,3\textwidth}
+			\begin{equation}\label{eq:res32}
+			Winogr =\begin{bmatrix}
+			0 & 0 \\
+			0 & 0 
+			\end{bmatrix}
+			\end{equation}
+		\end{minipage}
+	\end{center}
+	
+	Тест 4. Умножение матриц 1x1.
+	
+	Матрицы для перемножения:
+	
+	\begin{minipage}[c][3cm][c]{0,5\textwidth}
+		\begin{math}\label{eq:test41}
+		A =\begin{bmatrix}
+		-1
+		\end{bmatrix}
+		\end{math}
+	\end{minipage}
+	\begin{minipage}[c][3cm][c]{0,5\textwidth}
+		\begin{math}\label{eq:test42}
+		B =\begin{bmatrix}
+		2 
+		\end{bmatrix}
+		\end{math}
+	\end{minipage}
+	
+	Ожидаемый результат:
+	
+	\begin{center}
+		\begin{math}\label{eq:res4}
+		C =\begin{bmatrix}
+		-2 
+		\end{bmatrix}
+		\end{math}
+	\end{center}
+	
+	
+	
+	\begin{center}
+		\begin{minipage}[c][3cm][c]{0,3\textwidth}
+			\begin{equation}\label{eq:res41}
+			Classic =\begin{bmatrix}
+			-2 
+			\end{bmatrix}
+			\end{equation}
+		\end{minipage}	
+		\begin{minipage}[c][3cm][c]{0,3\textwidth}
+			\begin{equation}\label{eq:res42}
+			Winogr =\begin{bmatrix}
+			-2 
+			\end{bmatrix}
+			\end{equation}
+		\end{minipage}
+    \end{center}
+    
+    Результаты, где (\ref{eq:res41}) - классический алгоритм и (\ref{eq:res42}) - алгоритм Винограда:
+	
+	
+	\newpage
+	\subsection{Постановка эксперимента}
+	\label{sec:exp:setting}
+Замеры времени производились на различной нечетной размерности матрицы от 11 до 1011 с шагом 100 для разного числа потоков (1, 2, 4, 8, 16).
+Замеры процессорного времени были произведены с помощью встроенного метода TotalProcessorTime с последующим переводом в тики.
+
+	
+	\newpage
+	\subsection{Сравнительный анализ на основе экспериментальных данных}
+	\label{sec:exp:compare}
+	
+	По произведенным замерам были построены следующие графики.
+
+\begin{center}
+	\centering
+	%\includegraphics[scale=0.75]{compare1.png}	
+	%\captionof {figure}{Замеры для 1 потока}
+	\label{fig:one}
+\end{center}
+
+
+\begin{center}
+	\centering
+	%\includegraphics[scale=0.75]{compare2.png}	
+	%\captionof {figure}{Замеры для 2 потоков}
+	\label{fig:two}
+\end{center}
+
+
+\begin{center}
+	\centering
+	%\includegraphics[scale=0.75]{compare4.png}	
+	%\captionof {figure}{Замеры для 4 потоков}
+	\label{fig:four}
+\end{center}
+
+\begin{center}
+	\centering
+	%\includegraphics[scale=0.75]{compare8.png}	
+	%\captionof {figure}{Замеры для 8 потоков}
+	\label{fig:eight}
+\end{center}
+
+\begin{center}
+	\centering
+	%\includegraphics[scale=0.75]{compare16.png}	
+	%\captionof {figure}{Замеры для 16 потоков}
+	\label{fig:sixteen}
+\end{center}
+
+Были также произведены замеры времени выполнения многопоточных реализаций, для определения зависимости времени выполнения от числа потоков. 
+Выявленная зависимость представлена на рисунке %\ref{fig:ig:threads}.
+
+\begin{center}
+	\centering
+	%\includegraphics[scale=0.8]{2.png}	
+	%\captionof {figure}{Зависимость времени выполнения от числа потоков}
+	\label{fig:threads}
+\end{center}
+
+
+\subsection{Вывод}
+\label{sec:exp:conclusion}
+
+Произведенные эксперименты показали, что параллельные вычисления в реализации классического алгоритма улучшают показатели, в то время как в реализации алгоритма Винограда ухудшают их, предположительно из-за времени создания объектов, копирования исходных данных и выполнения последнего цикла в основном потоке после завершения всех потоков.
+Также был произведен анализ зависимости времени выполнения методов от числа потоков.
+
+\newpage
+\begin{center}
+	\textbf{Заключение}
+	\label{sec:outro}
+\end{center}
+
+
+В ходе лабораторной работы были реализованы два алгоритма перемножения матриц: классический и алгоритм Винограда.
+Для обоих алгоритмов была предложена оптимизация, подразумевающая параллельные вычисления.
+Был произведен анализ временных показателей для всех реализаций.
+Результаты данного анализа, произведенного в экспериментальной части, показали, что параллельные вычисления улучшают работу классического алгоритма, в то время как распараллеленный алгоритм Винограда не улучшается в данной реализации, так как для каждого потока происходит копирование всех исходных данных, а последний цикл, предусмотренный алгоритмом для корректировки результата на нечетных размерностях матриц не модет быть распараллелен. Копирования элементов можно избежать, используя указатели, но это делает код менее безопасным и требует контроля памяти, так как автоматический сборщик мусора не контролирует указатели. 
+Также было показано, что при совпадении числа потоков и числа логических ядер методы показывают самые лучшие результаты, после чего их показатели начинают ухудшаться.
+
+    \newpage
+    \begin{thebibliography}{9}
+        \bibitem{Coppersmith_Winograd} Coppersmith and Shmuel Winograd. «Journal of Symbolic Computation» - М.:  Доклады Академий Наук СССР, 1965.
+
+        \bibitem{Coppersmith_Winograd_2} «Алгоритм Копперсмита — Винограда» [Электронный ресурс]. Journal of Symbolic Computation. – Режим доступа:
+        http://ru.math.wikia.com/wiki/Алгоритм Копперсмита — Винограда, свободный.	
+
+        \bibitem{Matrix_Mult} Корн Г., Корн Т. Алгебра матриц и матричное исчисление // Справочник по математике. — 4-е издание. — М: Наука, 1978. 
+    
+        \bibitem METANIT.COM: Сайт о программировании. [Электронный ресурс]. \\URL:https://metanit.com/sharp/tutorial/11.1.php (дата обращения: 012.02.2019)
+    \end{thebibliography}
+
+\end{document}
